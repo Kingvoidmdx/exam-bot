@@ -1,10 +1,10 @@
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
-const { createCanvas } = require('canvas');
 const fs = require('fs');
 
-const ADMIN_ID = 8674514245;
-const GROQ_API_KEY = process.env.GROQ_API_KEY; // Use your gsk- key here
+// ===== CONFIG =====
+const ADMIN_ID = 8674514245; // Your ID only
+const GROQ_API_KEY = process.env.GROQ_API_KEY; // Your gsk- key goes here in Render
 
 // ===== DATABASE =====
 const DB_PATH = './users.json';
@@ -25,7 +25,7 @@ function getUser(userId) {
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// ===== FORCE JOIN =====
+// ===== FORCE JOIN - PROFESSIONAL =====
 async function mustJoin(ctx, next) {
   try {
     const userId = ctx.from.id;
@@ -52,6 +52,7 @@ async function mustJoin(ctx, next) {
   }
 }
 
+// ===== ADMIN CHECK =====
 function adminOnly(ctx, next) {
   if (ctx.from.id!== ADMIN_ID) {
     return ctx.reply('❌ Access Denied\n\nThis command is restricted to administrators only.');
@@ -94,7 +95,7 @@ bot.start(mustJoin, async (ctx) => {
   await ctx.replyWithPhoto(
     { url: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1777247490603-2c6087d7.jpg' },
     {
-      caption: `KING VOID EXAM BOT 🇳🇬\n\nWelcome ${user.name}\nUser ID: ${userId}\nCredits: ${user.credits} 💎\n\n📚 JAMB/WAEC/NECO Past Questions\n🖼️ Image Format + Quiz Polls\n🤖 AI Explanations for Premium`,
+      caption: `KING VOID EXAM BOT 🇳🇬\n\nWelcome ${user.name}\nUser ID: ${userId}\nCredits: ${user.credits} 💎\n\n📚 JAMB/WAEC/NECO Past Questions\n🤖 AI Explanations for Premium\n\nCommands:\n/jamb Mathematics 2021\n/waec English 2020`,
    ...mainMenu
     }
   );
@@ -120,6 +121,7 @@ bot.hears('👤 Profile', mustJoin, (ctx) => {
   );
 });
 
+// ===== ADMIN ACTIVATE - ONLY YOU CAN USE =====
 bot.command('activate', adminOnly, (ctx) => {
   const parts = ctx.message.text.split(' ');
   if (parts.length < 2) {
@@ -139,31 +141,32 @@ bot.command('activate', adminOnly, (ctx) => {
   } catch (e) {}
 });
 
-// ===== TEST GROQ COMMAND - ADD THIS =====
+// ===== TEST GROQ - RUN THIS FIRST =====
 bot.command('testgrok', adminOnly, async (ctx) => {
   if (!GROQ_API_KEY) {
-    return ctx.reply('❌ GROQ_API_KEY not set in Render Environment Variables');
+    return ctx.reply('❌ GROQ_API_KEY not set in Render Environment Variables\nGo to Render → Environment → Add GROQ_API_KEY');
   }
   
   try {
     const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
       model: 'llama-3.1-8b-instant',
-      messages: [{ role: 'user', content: 'Say "GROQ is working" in JSON: {"status":"working"}' }],
+      messages: [{ role: 'user', content: 'Reply with JSON: {"status":"working"}' }],
       temperature: 0.1
     }, {
       headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` }
     });
     ctx.reply(`✅ GROQ API Working\n\nResponse: ${res.data.choices[0].message.content}`);
   } catch (e) {
-    ctx.reply(`❌ GROQ API Error:\n${e.response?.data?.error?.message || e.message}`);
+    ctx.reply(`❌ GROQ API Error:\n${e.response?.data?.error?.message || e.message}\n\nCheck your API key in Render`);
   }
 });
 
+// ===== SEND QUESTION - TEXT FORMAT - NO MORE BLACK SCREEN =====
 async function sendQuestion(ctx, exam, subject, year) {
   const user = getUser(ctx.from.id);
   
   if (!user.premium && user.credits <= 0) {
-    return ctx.reply('Insufficient Credits\n\n🔗 Invite friends for +3 credits each\n💎 Upgrade to Premium for ₦500/month unlimited access', mainMenu);
+    return ctx.reply('Insufficient Credits\n\n🔗 Invite friends for +3 credits each\n💎 Upgrade to Premium for ₦500/month', mainMenu);
   }
   
   if (!user.premium) {
@@ -177,15 +180,14 @@ async function sendQuestion(ctx, exam, subject, year) {
     const qData = await getQuestionFromGroq(exam, subject, year);
     
     if (!qData) {
-      return ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, `❌ API Error\n\nCould not generate question. Check:\n1. GROQ_API_KEY is set in Render\n2. Run /testgrok to verify API\n3. Contact @Kingvoid_dev77`);
+      return ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, `❌ Question Generation Failed\n\nRun /testgrok to check API status\nOr try different year/subject`);
     }
     
-    try {
-      const img = await makeQuestionImage(`${exam.toUpperCase()} ${year}\n${subject}\n\n${qData.question}`);
-      await ctx.replyWithPhoto({ source: img });
-    } catch (imgError) {
-      await ctx.reply(`📝 ${exam.toUpperCase()} ${year} - ${subject}\n\n${qData.question}`);
-    }
+    // SEND AS TEXT - NO IMAGE - WORKS 100%
+    await ctx.reply(
+      `📝 *${exam.toUpperCase()} ${year} - ${subject}*\n\n${qData.question}`,
+      { parse_mode: 'Markdown' }
+    );
     
     await ctx.sendPoll(
       `Select the correct answer:`,
@@ -238,7 +240,7 @@ bot.hears('💎 Premium', mustJoin, (ctx) => {
   );
 });
 
-// ===== GROQ API - WORKS WITH gsk- KEY =====
+// ===== GROQ API - WORKS WITH YOUR gsk- KEY =====
 async function getQuestionFromGroq(exam, subject, year) {
   if (!GROQ_API_KEY) {
     console.log('❌ GROQ_API_KEY missing');
@@ -286,66 +288,9 @@ correct is 0-3 for A-D. Make it authentic ${exam.toUpperCase()} style. ONLY JSON
   }
 }
 
-async function makeQuestionImage(text) {
-  const width = 900;
-  const height = 650;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext('2d');
-  
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, width, height);
-  
-  ctx.strokeStyle = '#1A1A2E';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(15, 15, width - 30, height - 30);
-  
-  ctx.fillStyle = '#0F3460';
-  ctx.font = 'bold 36px sans-serif';
-  ctx.fillText('KING VOID EXAM BOT', 40, 70);
-  
-  ctx.font = 'bold 18px sans-serif';
-  ctx.fillStyle = '#E94560';
-  ctx.fillText('JAMB | WAEC | NECO PAST QUESTIONS', 40, 105);
-  
-  ctx.strokeStyle = '#E94560';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(40, 125);
-  ctx.lineTo(width - 40, 125);
-  ctx.stroke();
-  
-  ctx.fillStyle = '#16213E';
-  const lines = text.split('\n');
-  let y = 170;
-  
-  lines.forEach(line => {
-    const words = line.split(' ');
-    let currentLine = '';
-    ctx.font = line.match(/JAMB|WAEC|NECO/)? 'bold 24px sans-serif' : '20px sans-serif';
-    
-    words.forEach(word => {
-      const testLine = currentLine + word + ' ';
-      if (ctx.measureText(testLine).width > width - 80) {
-        ctx.fillText(currentLine, 40, y);
-        y += 36;
-        currentLine = word + ' ';
-      } else {
-        currentLine = testLine;
-      }
-    });
-    ctx.fillText(currentLine, 40, y);
-    y += 42;
-  });
-  
-  ctx.font = '14px sans-serif';
-  ctx.fillStyle = '#6C757D';
-  ctx.fillText('@King_void_exam_bot', 40, height - 30);
-  
-  return canvas.toBuffer('image/png');
-}
-
+// ===== LAUNCH WITH GHOST KILLER =====
 bot.launch({
-  dropPendingUpdates: true // This kills ghost instances
+  dropPendingUpdates: true
 });
 console.log('KING VOID EXAM BOT ONLINE - GROQ ENABLED');
 
