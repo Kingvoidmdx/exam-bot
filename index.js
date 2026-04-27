@@ -3,10 +3,10 @@ const axios = require('axios');
 const fs = require('fs');
 const sharp = require('sharp');
 
-// ===== CONFIG - KING VAL / DAVIDSON'S BOT =====
+// ===== CONFIG - DAVID JOSHUA UGIAGBE / KING VAL =====
 const ADMIN_ID = 8674514245; 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const PREMIUM_PRICE = 800; // ₦800 FIXED
+const PREMIUM_PRICE = 800;
 
 // ===== DATABASE =====
 const DB_PATH = './users.json';
@@ -240,7 +240,7 @@ async function createQuestionImage(exam, subject, year, question, options) {
   return await sharp(Buffer.from(svg)).png().toBuffer();
 }
 
-// ===== SEND QUESTION - POLL 100% FIXED =====
+// ===== SEND QUESTION =====
 async function sendQuestion(ctx, exam, subject, year, difficulty = 'mixed') {
   const user = getUser(ctx.from.id);
   
@@ -270,7 +270,6 @@ async function sendQuestion(ctx, exam, subject, year, difficulty = 'mixed') {
     return ctx.reply(`❌ Question Generation Failed\n\nAI returned wrong subject or invalid format. Please try again.`);
   }
   
-  // SEND IMAGE FIRST - ALWAYS WORKS
   let imageSent = false;
   try {
     const imageBuffer = await createQuestionImage(exam, subject, year, qData.question, qData.options);
@@ -284,14 +283,12 @@ async function sendQuestion(ctx, exam, subject, year, difficulty = 'mixed') {
     return ctx.reply('❌ Failed to send question image. Please try again.');
   }
   
-  // SEND POLL - ULTRA SAFE
   if (imageSent) {
     try {
-      // STRIP PREFIX + SANITIZE + TRUNCATE TO 90 CHARS
       const pollOptions = qData.options.map(opt => {
         let clean = opt.replace(/^[A-D]\.\s*/, '').trim();
-        clean = clean.replace(/[\n\r]/g, ' '); // Remove line breaks
-        clean = clean.replace(/[^\x00-\x7F]/g, ''); // Remove emojis/special chars
+        clean = clean.replace(/[\n\r]/g, ' ');
+        clean = clean.replace(/[^\x00-\x7F]/g, '');
         return clean.length > 90? clean.substring(0, 87) + '...' : clean;
       });
       
@@ -368,10 +365,10 @@ bot.hears('📚 JAMB', mustJoin, (ctx) => ctx.reply('Use /jamb to see options'))
 bot.hears('📖 WAEC', mustJoin, (ctx) => ctx.reply('Use /waec Subject Year\n\nExample: /waec English 2020'));
 bot.hears('📝 NECO', mustJoin, (ctx) => ctx.reply('Use /neco Subject Year\n\nExample: /neco Physics 2019'));
 
-// ===== PREMIUM - FIXED TO ₦800 =====
+// ===== PREMIUM - UPDATED WITH YOUR REAL NAME =====
 bot.hears('💎 Premium', mustJoin, (ctx) => {
   ctx.reply(
-    `💎 KING VOID PREMIUM\n\nSubscription: ₦${PREMIUM_PRICE}/month\n\nBenefits:\n✅ Unlimited daily questions\n✅ AI-powered explanations\n✅ UTME score predictor\n✅ All subjects & years\n✅ 2026 Scheme of Work\n\nPayment Details:\nBank: OPAY\nAccount: 9154472946\nName: KING VOID\n\nAfter payment, send proof to:\nTelegram: @Kingvoid_dev77\nWhatsApp: 2348036377933\n\nYour User ID: ${ctx.from.id}`,
+    `💎 *𝗞𝗜𝗡𝗚 𝗩𝗢𝗜𝗗 𝗣𝗥𝗘𝗠𝗜𝗨𝗠*\n\n*Subscription: ₦${PREMIUM_PRICE}/month*\n\n*Benefits:*\n✅ Unlimited daily questions\n✅ AI-powered explanations\n✅ UTME score predictor\n✅ All subjects & years\n✅ 2026 Scheme of Work\n\n*Payment Details:*\nBank: *OPAY*\nAccount: *9154472946*\nName: *David Joshua Ugiagbe*\n\nAfter payment, send proof to:\nTelegram: @Kingvoid_dev77\nWhatsApp: 2348036377933\n\nYour User ID: ${ctx.from.id}`,
     Markup.inlineKeyboard([
       [Markup.button.url('Contact Admin', 'https://t.me/Kingvoid_dev77')],
       [Markup.button.url('WhatsApp', 'https://wa.me/2348036377933')]
@@ -529,7 +526,6 @@ ONLY JSON.`;
       const wrongSubjects = Object.keys(SUBJECT_VALIDATION).filter(s => s!== subjectLower);
       const wrongKeywords = wrongSubjects.flatMap(s => SUBJECT_VALIDATION[s]).filter(kw => lowerQ.includes(kw));
       
-      // If question has NO keywords from requested subject but has 3+ keywords from OTHER subjects, reject
       if (!hasSubjectKeyword && wrongKeywords.length > 2) {
         console.log(`Rejected: Wrong subject content. Expected ${subject}, found: ${wrongKeywords.slice(0,3).join(', ')}`);
         return null;
@@ -546,7 +542,7 @@ ONLY JSON.`;
 bot.launch({
   dropPendingUpdates: true
 });
-console.log('KING VOID EXAM BOT V3.1 - ALL SUBJECTS VALIDATED - ₦800 PREMIUM - POLL FIXED - KING VAL READY');
+console.log('KING VOID EXAM BOT V3.1 - DAVID JOSHUA UGIAGBE - ALL SUBJECTS VALIDATED - ₦800 PREMIUM - KING VAL READY');
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
