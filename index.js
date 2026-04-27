@@ -174,11 +174,10 @@ bot.action(/jamb_(science|social|arts)/, mustJoin, (ctx) => {
   ctx.editMessageText(text, { parse_mode: 'Markdown' });
 });
 
-// ===== IMAGE GENERATOR - SHARP + SVG - ANTI-COPY =====
+// ===== IMAGE GENERATOR - BIG BOLD FONTS - ANTI-COPY =====
 async function createQuestionImage(exam, subject, year, question, options) {
   const displaySubject = subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
   
-  // Split question into lines - max 60 chars per line
   const wrapText = (text, maxLen) => {
     const words = text.split(' ');
     const lines = [];
@@ -195,41 +194,41 @@ async function createQuestionImage(exam, subject, year, question, options) {
     return lines;
   };
   
-  const questionLines = wrapText(question, 55);
-  const height = 400 + (questionLines.length * 25);
+  const questionLines = wrapText(question, 45);
+  const height = 500 + (questionLines.length * 35);
   
   const svg = `
-  <svg width="800" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <svg width="900" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+        <stop offset="0%" style="stop-color:#0f0f1e;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#1a1a2e;stop-opacity:1" />
       </linearGradient>
     </defs>
-    <rect width="800" height="${height}" fill="url(#bg)"/>
-    <rect x="20" y="20" width="760" height="${height-40}" fill="none" stroke="#e94560" stroke-width="3"/>
+    <rect width="900" height="${height}" fill="url(#bg)"/>
+    <rect x="25" y="25" width="850" height="${height-50}" fill="none" stroke="#e94560" stroke-width="4"/>
     
-    <text x="400" y="60" font-family="Arial" font-size="28" font-weight="bold" fill="#e94560" text-anchor="middle">
+    <text x="450" y="80" font-family="Arial Black, Arial" font-size="38" font-weight="900" fill="#ff4655" text-anchor="middle">
       ${exam.toUpperCase()} ${year} - ${displaySubject}
     </text>
     
-    <line x1="50" y1="80" x2="750" y2="80" stroke="#e94560" stroke-width="2"/>
+    <line x1="60" y1="110" x2="840" y2="110" stroke="#e94560" stroke-width="3"/>
     
     ${questionLines.map((line, i) => `
-      <text x="50" y="${130 + i*25}" font-family="Arial" font-size="18" fill="#ffffff">${line}</text>
+      <text x="60" y="${170 + i*35}" font-family="Arial" font-size="24" font-weight="700" fill="#ffffff">${line}</text>
     `).join('')}
     
     ${options.map((opt, i) => `
-      <text x="50" y="${180 + questionLines.length*25 + i*30}" font-family="Arial" font-size="17" fill="#f5f5f5">${opt}</text>
+      <text x="60" y="${230 + questionLines.length*35 + i*40}" font-family="Arial" font-size="22" font-weight="600" fill="#f0f0f0">${opt}</text>
     `).join('')}
     
-    <text x="400" y="${height-30}" font-family="Arial" font-size="14" fill="#888" text-anchor="middle">KING VOID EXAM BOT - ANTI-COPY</text>
+    <text x="450" y="${height-40}" font-family="Arial" font-size="16" font-weight="bold" fill="#666" text-anchor="middle">KING VOID EXAM BOT - ANTI-COPY PROTECTION</text>
   </svg>`;
   
   return await sharp(Buffer.from(svg)).png().toBuffer();
 }
 
-// ===== SEND QUESTION - IMAGE + HARD MODE =====
+// ===== SEND QUESTION - FIXED POLL BUG =====
 async function sendQuestion(ctx, exam, subject, year, difficulty = 'mixed') {
   const user = getUser(ctx.from.id);
   
@@ -260,7 +259,6 @@ async function sendQuestion(ctx, exam, subject, year, difficulty = 'mixed') {
   }
   
   try {
-    // CREATE IMAGE - STUDENTS CAN'T COPY
     const imageBuffer = await createQuestionImage(exam, subject, year, qData.question, qData.options);
     
     await ctx.replyWithPhoto(
@@ -268,10 +266,12 @@ async function sendQuestion(ctx, exam, subject, year, difficulty = 'mixed') {
       { caption: `📝 Answer in the poll below ↓` }
     );
     
-    // POLL
+    // FIX: STRIP "A. " PREFIX FOR POLL - TELEGRAM ADDS IT AUTO
+    const pollOptions = qData.options.map(opt => opt.replace(/^[A-D]\.\s*/, '').trim());
+    
     await ctx.sendPoll(
       `Select the correct answer:`,
-      qData.options,
+      pollOptions,
       { 
         type: 'quiz', 
         correct_option_id: qData.correct, 
@@ -326,7 +326,6 @@ bot.command('jamb', mustJoin, (ctx) => {
   sendQuestion(ctx, 'jamb', parts[1], parts[2], 'hard');
 });
 
-// Similar for WAEC/NECO
 bot.command('waec', mustJoin, (ctx) => {
   const parts = ctx.message.text.split(' ');
   if (parts.length < 3) return ctx.reply('Usage: /waec Subject Year\n\nExample: /waec English 2020');
@@ -353,7 +352,6 @@ bot.hears('💎 Premium', mustJoin, (ctx) => {
   );
 });
 
-// ===== ADMIN COMMANDS =====
 bot.command('activate', adminOnly, (ctx) => {
   const parts = ctx.message.text.split(' ');
   if (parts.length < 2) return ctx.reply('Admin Usage:\n/activate user_id');
@@ -413,9 +411,9 @@ async function getQuestionFromGroq(exam, subject, year, difficulty = 'mixed') {
   if (!GROQ_API_KEY) return null;
   
   const difficultyPrompt = difficulty === 'hard' 
-   ? 'Create a VERY DIFFICULT question. Use advanced concepts, calculations, and tricky options. Only 10% of students should get this.'
+  ? 'Create a VERY DIFFICULT question. Use advanced concepts, calculations, and tricky options. Only 10% of students should get this.'
     : difficulty === 'simple'
-   ? 'Create an EASY question. Basic concept, straightforward. 80% of students should get this.'
+  ? 'Create an EASY question. Basic concept, straightforward. 80% of students should get this.'
     : 'Randomly choose: 60% HARD questions, 40% EASY questions. Mix it up.';
   
   const prompt = `You are a ${exam.toUpperCase()} examiner for 2026. Create ONE ${subject} ${year} question.
@@ -477,7 +475,7 @@ correct is 0=A, 1=B, 2=C, 3=D. ONLY JSON.`;
 bot.launch({
   dropPendingUpdates: true
 });
-console.log('KING VOID EXAM BOT V2 - SHARP IMAGES - ANTI-COPY - KING VAL READY');
+console.log('KING VOID EXAM BOT V2.1 - BOLD FONTS + POLL FIX - KING VAL READY');
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
