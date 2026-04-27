@@ -369,10 +369,13 @@ bot.hears('📝 NECO', mustJoin, (ctx) => ctx.reply('Use /neco Subject Year\n\nE
 bot.hears('💎 Premium', mustJoin, (ctx) => {
   ctx.reply(
     `💎 *𝗞𝗜𝗡𝗚 𝗩𝗢𝗜𝗗 𝗣𝗥𝗘𝗠𝗜𝗨𝗠*\n\n*Subscription: ₦${PREMIUM_PRICE}/month*\n\n*Benefits:*\n✅ Unlimited daily questions\n✅ AI-powered explanations\n✅ UTME score predictor\n✅ All subjects & years\n✅ 2026 Scheme of Work\n\n*Payment Details:*\nBank: *OPAY*\nAccount: *9154472946*\nName: *David Joshua Ugiagbe*\n\nAfter payment, send proof to:\nTelegram: @Kingvoid_dev77\nWhatsApp: 2348036377933\n\nYour User ID: ${ctx.from.id}`,
-    Markup.inlineKeyboard([
-      [Markup.button.url('Contact Admin', 'https://t.me/Kingvoid_dev77')],
-      [Markup.button.url('WhatsApp', 'https://wa.me/2348036377933')]
-    ])
+    { 
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.url('Contact Admin', 'https://t.me/Kingvoid_dev77')],
+        [Markup.button.url('WhatsApp', 'https://wa.me/2348036377933')]
+      ])
+    }
   );
 });
 
