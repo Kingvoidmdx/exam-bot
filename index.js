@@ -4,8 +4,8 @@ const { createCanvas } = require('canvas');
 const fs = require('fs');
 
 // ===== CONFIG =====
-const ADMIN_ID = 8674514245; // Your Telegram ID - change this to your own
-const GROK_API_KEY = process.env.GROK_API_KEY; // Add this in Render env vars
+const ADMIN_ID = 8674514245; // Your ID only
+const GROK_API_KEY = process.env.GROK_API_KEY;
 
 // ===== DATABASE =====
 const DB_PATH = './users.json';
@@ -18,7 +18,7 @@ function saveDB() {
 }
 function getUser(userId) {
   if (!users[userId]) {
-    users[userId] = { credits: 5, premium: false, invitedBy: null, invites: 0 };
+    users[userId] = { credits: 5, premium: false, invitedBy: null, invites: 0, name: '' };
     saveDB();
   }
   return users[userId];
@@ -26,33 +26,37 @@ function getUser(userId) {
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// ===== FORCE JOIN =====
+// ===== FORCE JOIN - PROFESSIONAL NOW =====
 async function mustJoin(ctx, next) {
   try {
     const userId = ctx.from.id;
+    const user = getUser(userId);
+    user.name = ctx.from.first_name || 'User';
+    saveDB();
+    
     const group = await ctx.telegram.getChatMember('@king_void_exams', userId);
     const channel = await ctx.telegram.getChatMember('@king_void_updates', userId);
     
     if (['left', 'kicked'].includes(group.status) || ['left', 'kicked'].includes(channel.status)) {
       return ctx.reply(
-        '⚠️ Oga you must join our family first 🙏',
+        'Access Restricted\n\nTo use KING VOID EXAM BOT, you must be a member of our official platforms:',
         Markup.inlineKeyboard([
-          [Markup.button.url('Join Group', 'https://t.me/king_void_exams')],
-          [Markup.button.url('Join Channel', 'https://t.me/king_void_updates')],
-          [Markup.button.callback('✅ I Have Joined', 'verify_join')]
+          [Markup.button.url('Join Official Group', 'https://t.me/king_void_exams')],
+          [Markup.button.url('Join Update Channel', 'https://t.me/king_void_updates')],
+          [Markup.button.callback('✅ Verify Membership', 'verify_join')]
         ])
       );
     }
     return next();
   } catch (error) {
-    return ctx.reply('❌ Bot must be admin in both groups. Contact @Kingvoid_dev77');
+    return ctx.reply('Bot configuration error. Please contact @Kingvoid_dev77');
   }
 }
 
-// ===== ADMIN ONLY CHECK =====
+// ===== ADMIN CHECK =====
 function adminOnly(ctx, next) {
   if (ctx.from.id!== ADMIN_ID) {
-    return ctx.reply('❌ Admin only command');
+    return ctx.reply('❌ Access Denied\n\nThis command is restricted to administrators only.');
   }
   return next();
 }
@@ -64,15 +68,19 @@ const mainMenu = Markup.keyboard([
   ['🔗 Invite Friends', '👤 Profile']
 ]).resize();
 
+// ===== VERIFY JOIN - NEW PROFESSIONAL MESSAGE =====
 bot.action('verify_join', mustJoin, (ctx) => {
-  ctx.editMessageText('✅ Verified! Welcome to KING VOID EXAM BOT 🇳🇬');
-  ctx.reply('Main Menu:', mainMenu);
+  const user = getUser(ctx.from.id);
+  ctx.editMessageText(
+    `✅ Membership Verified\n\nWelcome, ${user.name}\nUser ID: ${ctx.from.id}\n\nYou now have full access to KING VOID EXAM BOT.\n\nClick /start to begin.`
+  );
 });
 
 // ===== /START + REFERRAL =====
 bot.start(mustJoin, async (ctx) => {
   const userId = ctx.from.id;
   const user = getUser(userId);
+  user.name = ctx.from.first_name || 'User';
   
   const referrerId = ctx.startPayload;
   if (referrerId && referrerId!== userId.toString() &&!user.invitedBy) {
@@ -84,15 +92,15 @@ bot.start(mustJoin, async (ctx) => {
     saveDB();
     
     try {
-      await ctx.telegram.sendMessage(referrerId, `🎉 New user joined! +3 credits\nTotal: ${referrer.credits} credits 💎`);
+      await ctx.telegram.sendMessage(referrerId, `🎉 Referral Successful\n\n+3 credits added\nTotal Credits: ${referrer.credits} 💎`);
     } catch (e) {}
   }
   
   await ctx.replyWithPhoto(
     { url: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1777247490603-2c6087d7.jpg' },
     {
-      caption: `Welcome to KING VOID EXAM BOT 🇳🇬\n\n📚 Real JAMB/WAEC/NECO past questions\n🖼️ Questions as images + poll options\n🤖 AI explanations for premium users\n\nCredits: ${user.credits} 💎\n\nUsage:\n/jamb Mathematics 2021\n/waec English 2020`,
-    ...mainMenu
+      caption: `KING VOID EXAM BOT 🇳🇬\n\nWelcome ${user.name}\nUser ID: ${userId}\nCredits: ${user.credits} 💎\n\n📚 JAMB/WAEC/NECO Past Questions\n🖼️ Image Format + Quiz Polls\n🤖 AI Explanations for Premium\n\nCommands:\n/jamb Mathematics 2021\n/waec English 2020\n/premium`,
+     ...mainMenu
     }
   );
 });
@@ -104,9 +112,9 @@ bot.hears('🔗 Invite Friends', mustJoin, (ctx) => {
   const botUsername = ctx.botInfo.username;
   
   ctx.reply(
-    `🔗 Invite Friends\n\nYour invite code: ${userId}\n\n💬 Share this link:\nhttps://t.me/${botUsername}?start=${userId}\n\n🎉 Rewards:\n• You get: +3 credits per friend\n• Friend gets: +2 credits\n\n👥 Total invites: ${user.invites}`,
+    `🔗 Referral Program\n\nYour Code: ${userId}\n\nShare Link:\nhttps://t.me/${botUsername}?start=${userId}\n\nRewards:\n• You earn: +3 credits per referral\n• New user earns: +2 credits\n\nTotal Referrals: ${user.invites}`,
     Markup.inlineKeyboard([
-      [Markup.button.url('📤 Share Link', `https://t.me/share/url?url=https://t.me/${botUsername}?start=${userId}&text=Join KING VOID EXAM BOT for free JAMB/WAEC/NECO past questions!`)]
+      [Markup.button.url('📤 Share Referral Link', `https://t.me/share/url?url=https://t.me/${botUsername}?start=${userId}&text=Get free JAMB/WAEC/NECO past questions with KING VOID EXAM BOT!`)]
     ])
   );
 });
@@ -115,34 +123,38 @@ bot.hears('🔗 Invite Friends', mustJoin, (ctx) => {
 bot.hears('👤 Profile', mustJoin, (ctx) => {
   const user = getUser(ctx.from.id);
   ctx.reply(
-    `👤 Your Profile\n\n💎 Credits: ${user.credits}\n🔥 Premium: ${user.premium? 'Active ✅' : 'Inactive ❌'}\n👥 Invites: ${user.invites}\n🆔 ID: ${ctx.from.id}\n\nUse credits to answer questions. /premium for unlimited.`
+    `👤 User Profile\n\nName: ${user.name}\nUser ID: ${ctx.from.id}\nCredits: ${user.credits} 💎\nPremium Status: ${user.premium? 'Active ✅' : 'Inactive ❌'}\nTotal Referrals: ${user.invites}\n\nPremium users get unlimited questions + AI explanations.`
   );
 });
 
-// ===== ADMIN COMMAND: /activate 8674514245 =====
+// ===== ADMIN ACTIVATE COMMAND =====
 bot.command('activate', adminOnly, (ctx) => {
   const parts = ctx.message.text.split(' ');
-  if (parts.length < 2) return ctx.reply('❌ Usage: /activate user_id\nExample: /activate 8674514245');
+  if (parts.length < 2) {
+    return ctx.reply('Admin Usage:\n/activate user_id\n\nExample: /activate 8674514245');
+  }
   
   const targetId = parts[1];
   const user = getUser(targetId);
   user.premium = true;
-  user.credits = 9999;
+  user.credits = 99999;
   saveDB();
   
-  ctx.reply(`✅ Activated Premium for ${targetId}\nUnlimited questions unlocked.`);
+  ctx.reply(`✅ Premium Activated\n\nUser ID: ${targetId}\nStatus: Unlimited Access Granted`);
   
   try {
-    ctx.telegram.sendMessage(targetId, `🎉 PREMIUM ACTIVATED!\n\n💎 You now have unlimited questions\n🤖 AI explanations enabled\n\nEnjoy KING VOID EXAM BOT!`);
-  } catch (e) {}
+    ctx.telegram.sendMessage(targetId, `🎉 PREMIUM ACTIVATED\n\nYour account now has:\n✅ Unlimited questions\n✅ AI explanations enabled\n✅ Priority support\n\nThank you for supporting KING VOID EXAM BOT!`);
+  } catch (e) {
+    ctx.reply('Note: Could not notify user. They may have blocked the bot.');
+  }
 });
 
-// ===== SEND QUESTION WITH CREDIT CHECK =====
+// ===== SEND QUESTION WITH IMAGE FIX =====
 async function sendQuestion(ctx, exam, subject, year) {
   const user = getUser(ctx.from.id);
   
   if (!user.premium && user.credits <= 0) {
-    return ctx.reply('❌ No credits left!\n\n🔗 Invite friends for +3 credits each\n💎 Or tap 💎 Premium for ₦500 unlimited', mainMenu);
+    return ctx.reply('Insufficient Credits\n\n🔗 Invite friends for +3 credits each\n💎 Upgrade to Premium for ₦500/month unlimited access', mainMenu);
   }
   
   if (!user.premium) {
@@ -150,26 +162,32 @@ async function sendQuestion(ctx, exam, subject, year) {
     saveDB();
   }
   
-  const waitMsg = await ctx.reply(`🔍 Searching ${exam.toUpperCase()} ${subject} ${year} on myschool.ng...\nCredits left: ${user.premium? 'Unlimited' : user.credits} 💎`);
+  const waitMsg = await ctx.reply(`Fetching ${exam.toUpperCase()} ${subject} ${year}...\nCredits Remaining: ${user.premium? 'Unlimited' : user.credits} 💎`);
   
   try {
     const qData = await getQuestionFromGrok(exam, subject, year);
     
     if (!qData) {
-      return ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, '❌ Question not found. Try another year or subject.');
+      return ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, 'Question not found. Please try a different year or subject.');
     }
     
-    const img = await makeQuestionImage(`${exam.toUpperCase()} ${year}\n${subject}\n\n${qData.question}`);
-    await ctx.replyWithPhoto({ source: img });
+    // Try to generate image, fallback to text if fails
+    try {
+      const img = await makeQuestionImage(`${exam.toUpperCase()} ${year}\n${subject}\n\n${qData.question}`);
+      await ctx.replyWithPhoto({ source: img });
+    } catch (imgError) {
+      console.error('Canvas error:', imgError);
+      await ctx.reply(`📝 ${exam.toUpperCase()} ${year} - ${subject}\n\n${qData.question}`);
+    }
     
     await ctx.sendPoll(
-      `Pick correct answer:`,
+      `Select the correct answer:`,
       qData.options,
       { 
         type: 'quiz', 
         correct_option_id: qData.correct, 
         is_anonymous: false,
-        explanation: user.premium? qData.explanation : 'Upgrade to Premium for AI explanation 💎'
+        explanation: user.premium? qData.explanation : 'Premium users see AI explanations. Upgrade via 💎 Premium'
       }
     );
     
@@ -177,77 +195,71 @@ async function sendQuestion(ctx, exam, subject, year) {
     
   } catch (e) {
     console.error(e);
-    await ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, '❌ Error fetching question. Try again later.');
+    await ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, 'Error retrieving question. Please try again later.');
   }
 }
 
-// ===== QUESTION COMMANDS =====
+// ===== COMMANDS =====
 bot.command('jamb', mustJoin, (ctx) => {
   const parts = ctx.message.text.split(' ');
-  if (parts.length < 3) return ctx.reply('❌ Usage: /jamb Mathematics 2021');
+  if (parts.length < 3) return ctx.reply('Usage: /jamb Mathematics 2021');
   sendQuestion(ctx, 'jamb', parts[1], parts[2]);
 });
 
 bot.command('waec', mustJoin, (ctx) => {
   const parts = ctx.message.text.split(' ');
-  if (parts.length < 3) return ctx.reply('❌ Usage: /waec English 2020');
+  if (parts.length < 3) return ctx.reply('Usage: /waec English 2020');
   sendQuestion(ctx, 'waec', parts[1], parts[2]);
 });
 
 bot.command('neco', mustJoin, (ctx) => {
   const parts = ctx.message.text.split(' ');
-  if (parts.length < 3) return ctx.reply('❌ Usage: /neco Physics 2019');
+  if (parts.length < 3) return ctx.reply('Usage: /neco Physics 2019');
   sendQuestion(ctx, 'neco', parts[1], parts[2]);
 });
 
-bot.hears('📚 JAMB', mustJoin, (ctx) => ctx.reply('Send: /jamb Subject Year\nExample: /jamb Mathematics 2021'));
-bot.hears('📖 WAEC', mustJoin, (ctx) => ctx.reply('Send: /waec Subject Year\nExample: /waec English 2020'));
-bot.hears('📝 NECO', mustJoin, (ctx) => ctx.reply('Send: /neco Subject Year\nExample: /neco Physics 2019'));
+bot.hears('📚 JAMB', mustJoin, (ctx) => ctx.reply('Enter command:\n/jamb Subject Year\n\nExample: /jamb Mathematics 2021'));
+bot.hears('📖 WAEC', mustJoin, (ctx) => ctx.reply('Enter command:\n/waec Subject Year\n\nExample: /waec English 2020'));
+bot.hears('📝 NECO', mustJoin, (ctx) => ctx.reply('Enter command:\n/neco Subject Year\n\nExample: /neco Physics 2019'));
 
 // ===== PREMIUM =====
 bot.hears('💎 Premium', mustJoin, (ctx) => {
   ctx.reply(
-    `💎 KING-VOID PREMIUM - ₦500/month\n\n✅ Unlimited questions daily\n✅ AI explanation for every answer\n✅ UTME score predictor\n✅ All subjects + years\n\nPay to:\nBank: OPAY\nAcct: 9154472946\nName: KING VOID\n\nAfter payment:\nSend proof to @Kingvoid_dev77 or WhatsApp: 2348036377933\n\nYour ID: ${ctx.from.id}`,
+    `💎 KING VOID PREMIUM\n\nSubscription: ₦500/month\n\nBenefits:\n✅ Unlimited daily questions\n✅ AI-powered explanations\n✅ UTME score predictor\n✅ All subjects & years\n✅ Priority support\n\nPayment Details:\nBank: OPAY\nAccount: 9154472946\nName: KING VOID\n\nAfter payment, send proof to:\nTelegram: @Kingvoid_dev77\nWhatsApp: 2348036377933\n\nYour User ID: ${ctx.from.id}`,
     Markup.inlineKeyboard([
-      [Markup.button.url('💬 Chat Admin', 'https://t.me/Kingvoid_dev77')],
-      [Markup.button.url('📱 WhatsApp', 'https://wa.me/2348036377933')]
+      [Markup.button.url('Contact Admin', 'https://t.me/Kingvoid_dev77')],
+      [Markup.button.url('WhatsApp', 'https://wa.me/2348036377933')]
     ])
   );
 });
 
-// ===== GROK API - FETCH REAL QUESTIONS =====
+// ===== GROK API =====
 async function getQuestionFromGrok(exam, subject, year) {
   if (!GROK_API_KEY) {
-    console.log('No GROK_API_KEY found');
+    console.log('GROK_API_KEY missing');
     return null;
   }
   
-  const prompt = `You are a JAMB/WAEC/NECO past question extractor. Find ONE real ${exam.toUpperCase()} ${subject} question from year ${year} from myschool.ng or similar Nigerian exam sites. 
-  
-Return ONLY valid JSON in this exact format:
+  const prompt = `Find ONE real ${exam.toUpperCase()} ${subject} question from ${year} from myschool.ng or pass.ng. Return ONLY JSON:
 {
-  "question": "Full question text here",
-  "options": ["A. option1", "B. option2", "C. option3", "D. option4"],
+  "question": "full question text",
+  "options": ["A. text", "B. text", "C. text", "D. text"],
   "correct": 0,
-  "explanation": "Brief explanation why correct answer is right"
+  "explanation": "brief explanation"
 }
-
-Rules:
-- correct is 0-3 index for A-D
-- If no question found, return null
-- Must be real past question, not made up
-- Include all options A-D`;
+correct is 0-3 for A-D. If not found return null. Must be authentic past question.`;
 
   try {
     const response = await axios.post('https://api.x.ai/v1/chat/completions', {
       model: 'grok-2-latest',
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2
+      temperature: 0.1
     }, {
       headers: {
         'Authorization': `Bearer ${GROK_API_KEY}`,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 15000
     });
     
     const content = response.data.choices[0].message.content;
@@ -256,35 +268,35 @@ Rules:
     
     return JSON.parse(jsonMatch[0]);
   } catch (error) {
-    console.error('Grok API error:', error.message);
+    console.error('Grok error:', error.message);
     return null;
   }
 }
 
-// ===== MAJESTIC IMAGE GENERATOR =====
+// ===== IMAGE GENERATOR - FIXED =====
 async function makeQuestionImage(text) {
   const width = 900;
   const height = 650;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
   
-  const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, '#FFFFFF');
-  gradient.addColorStop(1, '#F1F3F5');
-  ctx.fillStyle = gradient;
+  // White background - no gradient to avoid issues
+  ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
   
+  // Border
   ctx.strokeStyle = '#1A1A2E';
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 4;
   ctx.strokeRect(15, 15, width - 30, height - 30);
   
+  // Header
   ctx.fillStyle = '#0F3460';
-  ctx.font = 'bold 38px Arial';
+  ctx.font = 'bold 36px sans-serif';
   ctx.fillText('KING VOID EXAM BOT', 40, 70);
   
-  ctx.font = 'bold 20px Arial';
+  ctx.font = 'bold 18px sans-serif';
   ctx.fillStyle = '#E94560';
-  ctx.fillText('🇳🇬 JAMB | WAEC | NECO PAST QUESTIONS', 40, 105);
+  ctx.fillText('JAMB | WAEC | NECO PAST QUESTIONS', 40, 105);
   
   ctx.strokeStyle = '#E94560';
   ctx.lineWidth = 3;
@@ -293,6 +305,7 @@ async function makeQuestionImage(text) {
   ctx.lineTo(width - 40, 125);
   ctx.stroke();
   
+  // Question text
   ctx.fillStyle = '#16213E';
   const lines = text.split('\n');
   let y = 170;
@@ -300,28 +313,28 @@ async function makeQuestionImage(text) {
   lines.forEach(line => {
     const words = line.split(' ');
     let currentLine = '';
-    ctx.font = line.match(/JAMB|WAEC|NECO/)? 'bold 26px Arial' : '22px Arial';
+    ctx.font = line.match(/JAMB|WAEC|NECO/)? 'bold 24px sans-serif' : '20px sans-serif';
     
     words.forEach(word => {
       const testLine = currentLine + word + ' ';
       if (ctx.measureText(testLine).width > width - 80) {
         ctx.fillText(currentLine, 40, y);
-        y += 38;
+        y += 36;
         currentLine = word + ' ';
       } else {
         currentLine = testLine;
       }
     });
     ctx.fillText(currentLine, 40, y);
-    y += 45;
+    y += 42;
   });
   
-  ctx.font = '16px Arial';
+  ctx.font = '14px sans-serif';
   ctx.fillStyle = '#6C757D';
-  ctx.fillText('@King_void_exam_bot | t.me/king_void_exams', 40, height - 30);
+  ctx.fillText('@King_void_exam_bot', 40, height - 30);
   
   return canvas.toBuffer('image/png');
 }
 
 bot.launch();
-console.log('KING-VOID EXAM BOT ONLINE WITH GROK + ADMIN');
+console.log('KING VOID EXAM BOT ONLINE');
