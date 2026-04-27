@@ -1,12 +1,13 @@
 {
   "name": "king-void-exam-bot",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "index.js",
   "scripts": { 
     "start": "node index.js" 
   },
   "dependencies": { 
     "telegraf": "^4.15.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "sharp": "^0.33.0"
   }
 }
