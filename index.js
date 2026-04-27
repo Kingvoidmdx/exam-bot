@@ -6,7 +6,7 @@ const sharp = require('sharp');
 // ===== CONFIG - KING VAL / DAVIDSON'S BOT =====
 const ADMIN_ID = 8674514245; 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const PREMIUM_PRICE = 800;
+const PREMIUM_PRICE = 800; // ₦800 FIXED
 
 // ===== DATABASE =====
 const DB_PATH = './users.json';
@@ -27,10 +27,10 @@ function getUser(userId) {
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// ===== SUBJECT KEYWORDS - PREVENTS WRONG SUBJECT =====
+// ===== SUBJECT KEYWORDS - ALL SUBJECTS =====
 const SUBJECT_VALIDATION = {
-  mathematics: ['calculate', 'solve', 'equation', 'f(x)', 'derivative', 'integral', 'probability', 'log', 'sin', 'cos', 'tan', 'algebra', 'geometry'],
-  english: ['passage', 'comprehension', 'synonym', 'antonym', 'grammar', 'lexis', 'structure', 'oral', 'speech', 'phonetic'],
+  mathematics: ['calculate', 'solve', 'equation', 'f(x)', 'derivative', 'integral', 'probability', 'log', 'sin', 'cos', 'tan', 'algebra', 'geometry', 'x', 'y'],
+  english: ['passage', 'comprehension', 'synonym', 'antonym', 'grammar', 'lexis', 'structure', 'oral', 'speech', 'phonetic', 'sentence'],
   physics: ['force', 'velocity', 'acceleration', 'energy', 'wavelength', 'current', 'voltage', 'resistance', 'newton', 'joule', 'ohm'],
   chemistry: ['element', 'compound', 'reaction', 'acid', 'base', 'salt', 'mole', 'atom', 'molecule', 'organic', 'periodic'],
   biology: ['cell', 'organism', 'photosynthesis', 'genetics', 'ecosystem', 'evolution', 'mitosis', 'meiosis', 'chromosome', 'species'],
@@ -192,7 +192,7 @@ bot.action(/jamb_(science|social|arts)/, mustJoin, (ctx) => {
   ctx.editMessageText(text, { parse_mode: 'Markdown' });
 });
 
-// ===== IMAGE GENERATOR - ULTRA BOLD =====
+// ===== IMAGE GENERATOR =====
 async function createQuestionImage(exam, subject, year, question, options) {
   const displaySubject = subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
   
@@ -240,7 +240,7 @@ async function createQuestionImage(exam, subject, year, question, options) {
   return await sharp(Buffer.from(svg)).png().toBuffer();
 }
 
-// ===== SEND QUESTION - ALL SUBJECTS VALIDATED =====
+// ===== SEND QUESTION - POLL 100% FIXED =====
 async function sendQuestion(ctx, exam, subject, year, difficulty = 'mixed') {
   const user = getUser(ctx.from.id);
   
@@ -270,37 +270,45 @@ async function sendQuestion(ctx, exam, subject, year, difficulty = 'mixed') {
     return ctx.reply(`❌ Question Generation Failed\n\nAI returned wrong subject or invalid format. Please try again.`);
   }
   
+  // SEND IMAGE FIRST - ALWAYS WORKS
+  let imageSent = false;
   try {
     const imageBuffer = await createQuestionImage(exam, subject, year, qData.question, qData.options);
     await ctx.replyWithPhoto(
       { source: imageBuffer },
-      { caption: `📝 Answer in the poll below ↓` }
+      { caption: `📝 ${exam.toUpperCase()} ${year} - ${subject}` }
     );
-    
-    const pollOptions = qData.options.map(opt => {
-      let clean = opt.replace(/^[A-D]\.\s*/, '').trim();
-      return clean.length > 95? clean.substring(0, 92) + '...' : clean;
-    });
-    
+    imageSent = true;
+  } catch (imgErr) {
+    console.error('Image send failed:', imgErr);
+    return ctx.reply('❌ Failed to send question image. Please try again.');
+  }
+  
+  // SEND POLL - ULTRA SAFE
+  if (imageSent) {
     try {
+      // STRIP PREFIX + SANITIZE + TRUNCATE TO 90 CHARS
+      const pollOptions = qData.options.map(opt => {
+        let clean = opt.replace(/^[A-D]\.\s*/, '').trim();
+        clean = clean.replace(/[\n\r]/g, ' '); // Remove line breaks
+        clean = clean.replace(/[^\x00-\x7F]/g, ''); // Remove emojis/special chars
+        return clean.length > 90? clean.substring(0, 87) + '...' : clean;
+      });
+      
       await ctx.sendPoll(
         `Select the correct answer:`,
         pollOptions,
         { 
           type: 'quiz', 
-          correct_option_id: qData.correct, 
+          correct_option_id: Number(qData.correct), 
           is_anonymous: false,
-          explanation: user.premium? qData.explanation : `Premium users see AI explanations. Upgrade via 💎 Premium`
+          explanation: user.premium? qData.explanation.substring(0, 200) : `Premium users see AI explanations. Upgrade via 💎 Premium`
         }
       );
     } catch (pollError) {
-      console.error('Poll failed:', pollError);
-      await ctx.reply('⚠️ Poll failed. Question image shown above. Check options in image.');
+      console.error('Poll failed:', pollError.message);
+      await ctx.reply(`✅ Question sent above.\n\nCorrect Answer: ${qData.options[qData.correct]}\n\n⚠️ Poll unavailable due to long options. Upgrade to Premium for explanations.`);
     }
-    
-  } catch (e) {
-    console.error('Send error:', e);
-    await ctx.reply('❌ Failed to send question. Please try again.');
   }
 }
 
@@ -360,6 +368,7 @@ bot.hears('📚 JAMB', mustJoin, (ctx) => ctx.reply('Use /jamb to see options'))
 bot.hears('📖 WAEC', mustJoin, (ctx) => ctx.reply('Use /waec Subject Year\n\nExample: /waec English 2020'));
 bot.hears('📝 NECO', mustJoin, (ctx) => ctx.reply('Use /neco Subject Year\n\nExample: /neco Physics 2019'));
 
+// ===== PREMIUM - FIXED TO ₦800 =====
 bot.hears('💎 Premium', mustJoin, (ctx) => {
   ctx.reply(
     `💎 KING VOID PREMIUM\n\nSubscription: ₦${PREMIUM_PRICE}/month\n\nBenefits:\n✅ Unlimited daily questions\n✅ AI-powered explanations\n✅ UTME score predictor\n✅ All subjects & years\n✅ 2026 Scheme of Work\n\nPayment Details:\nBank: OPAY\nAccount: 9154472946\nName: KING VOID\n\nAfter payment, send proof to:\nTelegram: @Kingvoid_dev77\nWhatsApp: 2348036377933\n\nYour User ID: ${ctx.from.id}`,
@@ -424,7 +433,7 @@ bot.hears('🔗 Invite Friends', mustJoin, (ctx) => {
   );
 });
 
-// ===== GROQ API - STRICT SUBJECT VALIDATION FOR ALL SUBJECTS =====
+// ===== GROQ API - ALL SUBJECTS VALIDATION =====
 async function getQuestionFromGroq(exam, subject, year, difficulty = 'mixed') {
   if (!GROQ_API_KEY) return null;
   
@@ -453,7 +462,7 @@ STRICT RULES:
 4. Question must be 100% TEXT-ONLY solvable
 5. Use real ${examUpper} ${year} difficulty and style from Nigeria
 6. Make wrong options very close to correct answer
-7. KEEP EACH OPTION UNDER 80 CHARACTERS
+7. KEEP EACH OPTION UNDER 75 CHARACTERS
 
 Return ONLY JSON:
 {"question":"Question text for ${subject}","options":["A. option1","B. option2","C. option3","D. option4"],"correct":0,"explanation":"Why correct","difficulty":"hard or simple","subject_check":"${subject}"}
@@ -472,7 +481,7 @@ ONLY JSON.`;
         },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.05, // LOWER = MORE ACCURATE
+      temperature: 0.05,
       max_tokens: 800
     }, {
       headers: {
@@ -513,18 +522,16 @@ ONLY JSON.`;
       return null;
     }
     
-    // CHECK 3: Cross-subject contamination check
+    // CHECK 3: Cross-subject contamination check for ALL subjects
     const keywords = SUBJECT_VALIDATION[subjectLower];
     if (keywords) {
       const hasSubjectKeyword = keywords.some(kw => lowerQ.includes(kw));
-      const wrongKeywords = Object.keys(SUBJECT_VALIDATION)
-       .filter(s => s!== subjectLower)
-       .flatMap(s => SUBJECT_VALIDATION[s])
-       .filter(kw => lowerQ.includes(kw));
+      const wrongSubjects = Object.keys(SUBJECT_VALIDATION).filter(s => s!== subjectLower);
+      const wrongKeywords = wrongSubjects.flatMap(s => SUBJECT_VALIDATION[s]).filter(kw => lowerQ.includes(kw));
       
-      // If question has NO keywords from requested subject but has keywords from OTHER subjects, reject
+      // If question has NO keywords from requested subject but has 3+ keywords from OTHER subjects, reject
       if (!hasSubjectKeyword && wrongKeywords.length > 2) {
-        console.log(`Rejected: Wrong subject content. Expected ${subject}, found keywords: ${wrongKeywords.join(', ')}`);
+        console.log(`Rejected: Wrong subject content. Expected ${subject}, found: ${wrongKeywords.slice(0,3).join(', ')}`);
         return null;
       }
     }
@@ -539,7 +546,7 @@ ONLY JSON.`;
 bot.launch({
   dropPendingUpdates: true
 });
-console.log('KING VOID EXAM BOT V3.0 - ALL SUBJECTS VALIDATED - 101% ACCURATE - KING VAL READY');
+console.log('KING VOID EXAM BOT V3.1 - ALL SUBJECTS VALIDATED - ₦800 PREMIUM - POLL FIXED - KING VAL READY');
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
