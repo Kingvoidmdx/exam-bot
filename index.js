@@ -368,9 +368,9 @@ bot.hears('📝 NECO', mustJoin, (ctx) => ctx.reply('Use /neco Subject Year\n\nE
 // ===== PREMIUM - UPDATED WITH YOUR REAL NAME =====
 bot.hears('💎 Premium', mustJoin, (ctx) => {
   ctx.reply(
-    `💎 *𝗞𝗜𝗡𝗚 𝗩𝗢𝗜𝗗 𝗣𝗥𝗘𝗠𝗜𝗨𝗠*\n\n*Subscription: ₦${PREMIUM_PRICE}/month*\n\n*Benefits:*\n✅ Unlimited daily questions\n✅ AI-powered explanations\n✅ UTME score predictor\n✅ All subjects & years\n✅ 2026 Scheme of Work\n\n*Payment Details:*\nBank: *OPAY*\nAccount: *9154472946*\nName: *David Joshua Ugiagbe*\n\nAfter payment, send proof to:\nTelegram: @Kingvoid_dev77\nWhatsApp: 2348036377933\n\nYour User ID: ${ctx.from.id}`,
+    `<b>💎 KING VOID PREMIUM</b>\n\n<b>Subscription: ₦${PREMIUM_PRICE}/month</b>\n\n<b>Benefits:</b>\n✅ Unlimited daily questions\n✅ AI-powered explanations\n✅ UTME score predictor\n✅ All subjects & years\n✅ 2026 Scheme of Work\n\n<b>Payment Details:</b>\nBank: <b>OPAY</b>\nAccount: <b>9154472946</b>\nName: <b>David Joshua Ugiagbe</b>\n\nAfter payment, send proof to:\nTelegram: @Kingvoid_dev77\nWhatsApp: 2348036377933\n\nYour User ID: ${ctx.from.id}`,
     { 
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       ...Markup.inlineKeyboard([
         [Markup.button.url('Contact Admin', 'https://t.me/Kingvoid_dev77')],
         [Markup.button.url('WhatsApp', 'https://wa.me/2348036377933')]
