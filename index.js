@@ -1,8 +1,13 @@
 const { Telegraf, Markup } = require('telegraf');
+const axios = require('axios');
 const { createCanvas } = require('canvas');
 const fs = require('fs');
 
-// ===== DATABASE - Stores credits + referrals =====
+// ===== CONFIG =====
+const ADMIN_ID = 8674514245; // Your Telegram ID - change this to your own
+const GROK_API_KEY = process.env.GROK_API_KEY; // Add this in Render env vars
+
+// ===== DATABASE =====
 const DB_PATH = './users.json';
 let users = {};
 if (fs.existsSync(DB_PATH)) {
@@ -21,7 +26,7 @@ function getUser(userId) {
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// ===== FORCE JOIN CHECK =====
+// ===== FORCE JOIN =====
 async function mustJoin(ctx, next) {
   try {
     const userId = ctx.from.id;
@@ -44,7 +49,15 @@ async function mustJoin(ctx, next) {
   }
 }
 
-// ===== MAIN MENU BUTTONS =====
+// ===== ADMIN ONLY CHECK =====
+function adminOnly(ctx, next) {
+  if (ctx.from.id!== ADMIN_ID) {
+    return ctx.reply('❌ Admin only command');
+  }
+  return next();
+}
+
+// ===== MAIN MENU =====
 const mainMenu = Markup.keyboard([
   ['📚 JAMB', '📖 WAEC'], 
   ['📝 NECO', '💎 Premium'],
@@ -56,12 +69,11 @@ bot.action('verify_join', mustJoin, (ctx) => {
   ctx.reply('Main Menu:', mainMenu);
 });
 
-// ===== /START WITH REFERRAL SYSTEM =====
+// ===== /START + REFERRAL =====
 bot.start(mustJoin, async (ctx) => {
   const userId = ctx.from.id;
   const user = getUser(userId);
   
-  // Check referral: /start 123456789
   const referrerId = ctx.startPayload;
   if (referrerId && referrerId!== userId.toString() &&!user.invitedBy) {
     const referrer = getUser(referrerId);
@@ -72,20 +84,20 @@ bot.start(mustJoin, async (ctx) => {
     saveDB();
     
     try {
-      await ctx.telegram.sendMessage(referrerId, `🎉 New user joined via your link! +3 credits\nTotal: ${referrer.credits} credits 💎`);
+      await ctx.telegram.sendMessage(referrerId, `🎉 New user joined! +3 credits\nTotal: ${referrer.credits} credits 💎`);
     } catch (e) {}
   }
   
   await ctx.replyWithPhoto(
     { url: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1777247490603-2c6087d7.jpg' },
     {
-      caption: `Welcome to KING VOID EXAM BOT 🇳🇬\n\n📚 Real JAMB/WAEC/NECO past questions\n🖼️ Questions as images + poll options\n🤖 AI explanations for premium users\n\nCredits: ${user.credits} 💎\n\nUsage:\n/jamb Mathematics 2021\n/waec English 2020\n/premium - Unlock unlimited`,
-     ...mainMenu
+      caption: `Welcome to KING VOID EXAM BOT 🇳🇬\n\n📚 Real JAMB/WAEC/NECO past questions\n🖼️ Questions as images + poll options\n🤖 AI explanations for premium users\n\nCredits: ${user.credits} 💎\n\nUsage:\n/jamb Mathematics 2021\n/waec English 2020`,
+    ...mainMenu
     }
   );
 });
 
-// ===== INVITE FRIENDS - LIKE YOUR SCREENSHOT =====
+// ===== INVITE FRIENDS =====
 bot.hears('🔗 Invite Friends', mustJoin, (ctx) => {
   const userId = ctx.from.id;
   const user = getUser(userId);
@@ -103,11 +115,29 @@ bot.hears('🔗 Invite Friends', mustJoin, (ctx) => {
 bot.hears('👤 Profile', mustJoin, (ctx) => {
   const user = getUser(ctx.from.id);
   ctx.reply(
-    `👤 Your Profile\n\n💎 Credits: ${user.credits}\n🔥 Premium: ${user.premium? 'Active ✅' : 'Inactive ❌'}\n👥 Invites: ${user.invites}\n\nUse credits to answer questions. /premium for unlimited.`
+    `👤 Your Profile\n\n💎 Credits: ${user.credits}\n🔥 Premium: ${user.premium? 'Active ✅' : 'Inactive ❌'}\n👥 Invites: ${user.invites}\n🆔 ID: ${ctx.from.id}\n\nUse credits to answer questions. /premium for unlimited.`
   );
 });
 
-// ===== SEND QUESTION FUNCTION =====
+// ===== ADMIN COMMAND: /activate 8674514245 =====
+bot.command('activate', adminOnly, (ctx) => {
+  const parts = ctx.message.text.split(' ');
+  if (parts.length < 2) return ctx.reply('❌ Usage: /activate user_id\nExample: /activate 8674514245');
+  
+  const targetId = parts[1];
+  const user = getUser(targetId);
+  user.premium = true;
+  user.credits = 9999;
+  saveDB();
+  
+  ctx.reply(`✅ Activated Premium for ${targetId}\nUnlimited questions unlocked.`);
+  
+  try {
+    ctx.telegram.sendMessage(targetId, `🎉 PREMIUM ACTIVATED!\n\n💎 You now have unlimited questions\n🤖 AI explanations enabled\n\nEnjoy KING VOID EXAM BOT!`);
+  } catch (e) {}
+});
+
+// ===== SEND QUESTION WITH CREDIT CHECK =====
 async function sendQuestion(ctx, exam, subject, year) {
   const user = getUser(ctx.from.id);
   
@@ -120,20 +150,38 @@ async function sendQuestion(ctx, exam, subject, year) {
     saveDB();
   }
   
-  await ctx.reply(`🔍 Fetching ${exam.toUpperCase()} ${subject} ${year}...\nCredits left: ${user.premium? 'Unlimited' : user.credits} 💎`);
+  const waitMsg = await ctx.reply(`🔍 Searching ${exam.toUpperCase()} ${subject} ${year} on myschool.ng...\nCredits left: ${user.premium? 'Unlimited' : user.credits} 💎`);
   
-  const qData = await getQuestion(exam, subject, year);
-  const img = await makeQuestionImage(`${exam.toUpperCase()} ${year}\n${subject}\n\n${qData.question}`);
-  
-  await ctx.replyWithPhoto({ source: img });
-  await ctx.sendPoll(
-    `Pick correct answer:`,
-    qData.options,
-    { type: 'quiz', correct_option_id: qData.correct, is_anonymous: false, explanation: 'Upgrade to Premium for AI explanation 💎' }
-  );
+  try {
+    const qData = await getQuestionFromGrok(exam, subject, year);
+    
+    if (!qData) {
+      return ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, '❌ Question not found. Try another year or subject.');
+    }
+    
+    const img = await makeQuestionImage(`${exam.toUpperCase()} ${year}\n${subject}\n\n${qData.question}`);
+    await ctx.replyWithPhoto({ source: img });
+    
+    await ctx.sendPoll(
+      `Pick correct answer:`,
+      qData.options,
+      { 
+        type: 'quiz', 
+        correct_option_id: qData.correct, 
+        is_anonymous: false,
+        explanation: user.premium? qData.explanation : 'Upgrade to Premium for AI explanation 💎'
+      }
+    );
+    
+    await ctx.telegram.deleteMessage(ctx.chat.id, waitMsg.message_id);
+    
+  } catch (e) {
+    console.error(e);
+    await ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, '❌ Error fetching question. Try again later.');
+  }
 }
 
-// ===== JAMB WAEC NECO COMMANDS =====
+// ===== QUESTION COMMANDS =====
 bot.command('jamb', mustJoin, (ctx) => {
   const parts = ctx.message.text.split(' ');
   if (parts.length < 3) return ctx.reply('❌ Usage: /jamb Mathematics 2021');
@@ -159,7 +207,7 @@ bot.hears('📝 NECO', mustJoin, (ctx) => ctx.reply('Send: /neco Subject Year\nE
 // ===== PREMIUM =====
 bot.hears('💎 Premium', mustJoin, (ctx) => {
   ctx.reply(
-    `💎 KING-VOID PREMIUM - ₦500/month\n\n✅ Unlimited questions daily\n✅ AI explanation for every answer\n✅ UTME score predictor\n✅ All subjects + years\n\nPay to:\nBank: OPAY\nAcct: 9154472946\nName: KING VOID\n\nAfter payment:\nSend proof to @Kingvoid_dev77 or WhatsApp: 2348036377933`,
+    `💎 KING-VOID PREMIUM - ₦500/month\n\n✅ Unlimited questions daily\n✅ AI explanation for every answer\n✅ UTME score predictor\n✅ All subjects + years\n\nPay to:\nBank: OPAY\nAcct: 9154472946\nName: KING VOID\n\nAfter payment:\nSend proof to @Kingvoid_dev77 or WhatsApp: 2348036377933\n\nYour ID: ${ctx.from.id}`,
     Markup.inlineKeyboard([
       [Markup.button.url('💬 Chat Admin', 'https://t.me/Kingvoid_dev77')],
       [Markup.button.url('📱 WhatsApp', 'https://wa.me/2348036377933')]
@@ -167,26 +215,69 @@ bot.hears('💎 Premium', mustJoin, (ctx) => {
   );
 });
 
-// ===== MAJESTIC HOT FONTS IMAGE GENERATOR =====
+// ===== GROK API - FETCH REAL QUESTIONS =====
+async function getQuestionFromGrok(exam, subject, year) {
+  if (!GROK_API_KEY) {
+    console.log('No GROK_API_KEY found');
+    return null;
+  }
+  
+  const prompt = `You are a JAMB/WAEC/NECO past question extractor. Find ONE real ${exam.toUpperCase()} ${subject} question from year ${year} from myschool.ng or similar Nigerian exam sites. 
+  
+Return ONLY valid JSON in this exact format:
+{
+  "question": "Full question text here",
+  "options": ["A. option1", "B. option2", "C. option3", "D. option4"],
+  "correct": 0,
+  "explanation": "Brief explanation why correct answer is right"
+}
+
+Rules:
+- correct is 0-3 index for A-D
+- If no question found, return null
+- Must be real past question, not made up
+- Include all options A-D`;
+
+  try {
+    const response = await axios.post('https://api.x.ai/v1/chat/completions', {
+      model: 'grok-2-latest',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2
+    }, {
+      headers: {
+        'Authorization': `Bearer ${GROK_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const content = response.data.choices[0].message.content;
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    
+    return JSON.parse(jsonMatch[0]);
+  } catch (error) {
+    console.error('Grok API error:', error.message);
+    return null;
+  }
+}
+
+// ===== MAJESTIC IMAGE GENERATOR =====
 async function makeQuestionImage(text) {
   const width = 900;
   const height = 650;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
   
-  // Gradient bg - exam paper style
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
   gradient.addColorStop(0, '#FFFFFF');
   gradient.addColorStop(1, '#F1F3F5');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   
-  // Bold border
   ctx.strokeStyle = '#1A1A2E';
   ctx.lineWidth = 5;
   ctx.strokeRect(15, 15, width - 30, height - 30);
   
-  // Header - MAJESTIC
   ctx.fillStyle = '#0F3460';
   ctx.font = 'bold 38px Arial';
   ctx.fillText('KING VOID EXAM BOT', 40, 70);
@@ -195,7 +286,6 @@ async function makeQuestionImage(text) {
   ctx.fillStyle = '#E94560';
   ctx.fillText('🇳🇬 JAMB | WAEC | NECO PAST QUESTIONS', 40, 105);
   
-  // Red hot line
   ctx.strokeStyle = '#E94560';
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -203,17 +293,14 @@ async function makeQuestionImage(text) {
   ctx.lineTo(width - 40, 125);
   ctx.stroke();
   
-  // Question - PRECISION CLEAR
   ctx.fillStyle = '#16213E';
-  ctx.font = 'bold 24px Arial';
   const lines = text.split('\n');
   let y = 170;
   
   lines.forEach(line => {
-    // Word wrap for long lines
     const words = line.split(' ');
     let currentLine = '';
-    ctx.font = line.includes('JAMB') || line.includes('WAEC') || line.includes('NECO')? 'bold 26px Arial' : '22px Arial';
+    ctx.font = line.match(/JAMB|WAEC|NECO/)? 'bold 26px Arial' : '22px Arial';
     
     words.forEach(word => {
       const testLine = currentLine + word + ' ';
@@ -229,7 +316,6 @@ async function makeQuestionImage(text) {
     y += 45;
   });
   
-  // Footer watermark
   ctx.font = '16px Arial';
   ctx.fillStyle = '#6C757D';
   ctx.fillText('@King_void_exam_bot | t.me/king_void_exams', 40, height - 30);
@@ -237,15 +323,5 @@ async function makeQuestionImage(text) {
   return canvas.toBuffer('image/png');
 }
 
-// ===== FAKE QUESTION - WE ADD GROK SCRAPER NEXT =====
-async function getQuestion(exam, subject, year) {
-  // TODO: Replace with Grok API + myschool.ng scrape
-  return {
-    question: `If 2x + 5 = 15, find the value of x.\n\nShow your working.`,
-    options: ['A. x = 3', 'B. x = 5', 'C. x = 10', 'D. x = 15'],
-    correct: 1
-  };
-}
-
 bot.launch();
-console.log('KING-VOID EXAM BOT ONLINE WITH REFERRALS + HOT FONTS');
+console.log('KING-VOID EXAM BOT ONLINE WITH GROK + ADMIN');
