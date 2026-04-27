@@ -2,9 +2,9 @@ const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 const fs = require('fs');
 
-// ===== CONFIG =====
-const ADMIN_ID = 8674514245; // Your ID only
-const GROQ_API_KEY = process.env.GROQ_API_KEY; // Your gsk- key goes here in Render
+// ===== CONFIG - KING VAL / DAVIDSON'S BOT =====
+const ADMIN_ID = 8674514245; // Your ID
+const GROQ_API_KEY = process.env.GROQ_API_KEY; // Your gsk- key in Render
 
 // ===== DATABASE =====
 const DB_PATH = './users.json';
@@ -52,7 +52,7 @@ async function mustJoin(ctx, next) {
   }
 }
 
-// ===== ADMIN CHECK =====
+// ===== ADMIN CHECK - ONLY KING VAL =====
 function adminOnly(ctx, next) {
   if (ctx.from.id!== ADMIN_ID) {
     return ctx.reply('❌ Access Denied\n\nThis command is restricted to administrators only.');
@@ -96,7 +96,7 @@ bot.start(mustJoin, async (ctx) => {
     { url: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1777247490603-2c6087d7.jpg' },
     {
       caption: `KING VOID EXAM BOT 🇳🇬\n\nWelcome ${user.name}\nUser ID: ${userId}\nCredits: ${user.credits} 💎\n\n📚 JAMB/WAEC/NECO Past Questions\n🤖 AI Explanations for Premium\n\nCommands:\n/jamb Mathematics 2021\n/waec English 2020`,
-   ...mainMenu
+  ...mainMenu
     }
   );
 });
@@ -121,7 +121,7 @@ bot.hears('👤 Profile', mustJoin, (ctx) => {
   );
 });
 
-// ===== ADMIN ACTIVATE - ONLY YOU CAN USE =====
+// ===== ADMIN ACTIVATE - ONLY YOU KING VAL =====
 bot.command('activate', adminOnly, (ctx) => {
   const parts = ctx.message.text.split(' ');
   if (parts.length < 2) {
@@ -141,7 +141,7 @@ bot.command('activate', adminOnly, (ctx) => {
   } catch (e) {}
 });
 
-// ===== TEST GROQ - RUN THIS FIRST =====
+// ===== TEST GROQ - RUN THIS FIRST KING VAL =====
 bot.command('testgrok', adminOnly, async (ctx) => {
   if (!GROQ_API_KEY) {
     return ctx.reply('❌ GROQ_API_KEY not set in Render Environment Variables\nGo to Render → Environment → Add GROQ_API_KEY');
@@ -161,7 +161,7 @@ bot.command('testgrok', adminOnly, async (ctx) => {
   }
 });
 
-// ===== SEND QUESTION - TEXT FORMAT - NO MORE BLACK SCREEN =====
+// ===== SEND QUESTION - ASH EXAM PAPER STYLE - NO "1." =====
 async function sendQuestion(ctx, exam, subject, year) {
   const user = getUser(ctx.from.id);
   
@@ -183,12 +183,21 @@ async function sendQuestion(ctx, exam, subject, year) {
       return ctx.telegram.editMessageText(ctx.chat.id, waitMsg.message_id, null, `❌ Question Generation Failed\n\nRun /testgrok to check API status\nOr try different year/subject`);
     }
     
-    // SEND AS TEXT - NO IMAGE - WORKS 100%
+    // REMOVE "1." NUMBERING FROM GROQ
+    let cleanQuestion = qData.question.replace(/^\d+\.\s*/, '').trim();
+    
+    // EXAM PAPER FORMAT - BOLD + ASH BACKGROUND LIKE YOUR SCREENSHOT
     await ctx.reply(
-      `📝 *${exam.toUpperCase()} ${year} - ${subject}*\n\n${qData.question}`,
+      `📝 *${exam.toUpperCase()} ${year} - ${subject}*\n\n` +
+      `\`\`\`\n${cleanQuestion}\n\n` +
+      `${qData.options[0]}\n` +
+      `${qData.options[1]}\n` +
+      `${qData.options[2]}\n` +
+      `${qData.options[3]}\n\`\`\``,
       { parse_mode: 'Markdown' }
     );
     
+    // POLL FOR ANSWERING
     await ctx.sendPoll(
       `Select the correct answer:`,
       qData.options,
@@ -240,16 +249,25 @@ bot.hears('💎 Premium', mustJoin, (ctx) => {
   );
 });
 
-// ===== GROQ API - WORKS WITH YOUR gsk- KEY =====
+// ===== GROQ API - NO DIAGRAMS - EXAM STYLE =====
 async function getQuestionFromGroq(exam, subject, year) {
   if (!GROQ_API_KEY) {
     console.log('❌ GROQ_API_KEY missing');
     return null;
   }
   
-  const prompt = `Create a realistic ${exam.toUpperCase()} ${subject} ${year} past question for Nigerian students. Return ONLY valid JSON:
+  const prompt = `Create a realistic ${exam.toUpperCase()} ${subject} ${year} past question for Nigerian students. 
+  
+CRITICAL RULES:
+- DO NOT mention diagrams, figures, charts, graphs, tables, or images
+- Make it 100% text-only answerable
+- DO NOT start question with "1." or any number
+- Must be authentic ${exam.toUpperCase()} style
+
+Return ONLY valid JSON:
 {"question":"Full question text here","options":["A. option1","B. option2","C. option3","D. option4"],"correct":0,"explanation":"Brief explanation why correct"}
-correct is 0-3 for A-D. Make it authentic ${exam.toUpperCase()} style. ONLY JSON, no other text.`;
+
+correct is 0-3 for A-D. ONLY JSON, no other text.`;
 
   try {
     const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
@@ -269,15 +287,11 @@ correct is 0-3 for A-D. Make it authentic ${exam.toUpperCase()} style. ONLY JSON
     console.log('Groq response:', content);
     
     const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.log('No JSON in response');
-      return null;
-    }
+    if (!jsonMatch) return null;
     
     const parsed = JSON.parse(jsonMatch[0]);
     
     if (!parsed.question ||!parsed.options || parsed.correct === undefined || parsed.options.length!== 4) {
-      console.log('Invalid format');
       return null;
     }
     
@@ -288,11 +302,11 @@ correct is 0-3 for A-D. Make it authentic ${exam.toUpperCase()} style. ONLY JSON
   }
 }
 
-// ===== LAUNCH WITH GHOST KILLER =====
+// ===== LAUNCH - KILLS GHOST BOTS =====
 bot.launch({
   dropPendingUpdates: true
 });
-console.log('KING VOID EXAM BOT ONLINE - GROQ ENABLED');
+console.log('KING VOID EXAM BOT ONLINE - GROQ ENABLED - READY FOR KING VAL');
 
 // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
