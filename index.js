@@ -344,5 +344,11 @@ async function makeQuestionImage(text) {
   return canvas.toBuffer('image/png');
 }
 
-bot.launch();
+bot.launch({
+  dropPendingUpdates: true // This kills ghost instances
+});
 console.log('KING VOID EXAM BOT ONLINE - GROQ ENABLED');
+
+// Enable graceful stop
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
